@@ -124,17 +124,17 @@ with col1:
     )
     btc_target_weight_percent = st.slider(
         "BTC Target Weight (%)",
-        min_value=-100, # Allow shorting up to 1x
+        min_value=0, # Allow shorting up to 1x
         max_value=200,  # Allow leverage up to 2x
-        value=50,
+        value=100,
         step=1,
         help="Set the desired target weight for Bitcoin (e.g., -50 for 0.5x short, 150 for 1.5x leverage)."
     )
     alt_target_weight_percent = st.slider(
         "Altcoin Basket Target Weight (%)",
-        min_value=-100, # Allow shorting up to 1x
+        min_value=0, # Allow shorting up to 1x
         max_value=200,  # Allow leverage up to 2x
-        value=50,
+        value=25,
         step=1,
         help="Set the desired target weight for the Altcoin Basket (e.g., -50 for 0.5x short, 150 for 1.5x leverage)."
     )
@@ -144,7 +144,7 @@ with col2:
     excluded_tokens_str = st.text_area(
         "Excluded Tokens (comma-separated, lowercase)",
         # UPDATED default list
-        value="usdt,usdc,dai,tusd,busd,fdusd,usdp,pyusd,usdd,frax,wbtc,steth",
+        value="usdt,usdc,dai,tusd,busd,fdusd,usdp,pyusd,usdd,frax,wbtc,steth, wsteth, weth, usds, weeth",
         help="Enter token symbols (lowercase) to exclude. BTC is handled separately."
     )
     top_n_altcoins = st.number_input(
