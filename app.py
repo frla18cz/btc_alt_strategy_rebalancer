@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import requests
 import time # Import time for potential rate limiting
+import json # For passing data to JavaScript
 
 # --- CoinGecko API Fetching ---
 @st.cache_data(ttl=600) # Cache data for 10 minutes
@@ -125,16 +126,16 @@ with col1:
     btc_target_weight_percent = st.slider(
         "BTC Target Weight (%)",
         min_value=0, # Allow shorting up to 1x
-        max_value=200,  # Allow leverage up to 2x
-        value=100,
+        max_value=300,  # Allow leverage up to 2x
+        value=150,
         step=1,
         help="Set the desired target weight for Bitcoin (e.g., -50 for 0.5x short, 150 for 1.5x leverage)."
     )
     alt_target_weight_percent = st.slider(
         "Altcoin Basket Target Weight (%)",
         min_value=0, # Allow shorting up to 1x
-        max_value=200,  # Allow leverage up to 2x
-        value=25,
+        max_value=300,  # Allow leverage up to 2x
+        value=50,
         step=1,
         help="Set the desired target weight for the Altcoin Basket (e.g., -50 for 0.5x short, 150 for 1.5x leverage)."
     )
@@ -161,6 +162,7 @@ st.write("---") # Separator
 
 # --- Calculation Logic ---
 if st.button("🚀 Calculate Allocation"):
+
     progress_bar = st.progress(0)
     status_text = st.empty()
     status_text.info("Fetching market data from CoinGecko...")
@@ -263,15 +265,23 @@ if st.button("🚀 Calculate Allocation"):
                         }, inplace=True)
 
                         display_df['Symbol'] = display_df['Symbol'].str.upper()
-                        # Apply formatting
-                        display_df['Price (USD)'] = display_df['Price (USD)'].map('${:,.4f}'.format)
-                        display_df['Market Cap (USD)'] = display_df['Market Cap (USD)'].map('{:,.0f}'.format)
-                        display_df['Weight within Basket (%)'] = display_df['Weight within Basket (%)'].map('{:.2f}%'.format)
-                        # Format Target Allocation, handle negative (short) case visually
-                        display_df['Target Allocation (USD)'] = display_df['Target Allocation (USD)'].apply(
-                             lambda x: f"$({abs(x):,.2f})" if x < 0 else f"${x:,.2f}"
+                        # Apply formatting and add copy buttons
+                        # Price (USD) - original value is float, revert to decimal formatting, no copy button
+                        display_df['Price (USD)'] = display_df['Price (USD)'].map(
+                            lambda x: f"{x:,.4f}" if pd.notnull(x) else ''
                         )
-
+                        # Market Cap (USD) - original value is float/int, revert to formatted number, no copy button
+                        display_df['Market Cap (USD)'] = display_df['Market Cap (USD)'].map(
+                            lambda x: f"{x:,.0f}" if pd.notnull(x) else ''
+                        )
+                        # Weight within Basket (%) - Retain original formatting as it's a percentage
+                        display_df['Weight within Basket (%)'] = display_df['Weight within Basket (%)'].map('{:.2f}%'.format)
+                        
+                        # Target Allocation (USD) - Will be handled by iterating and displaying with st.button
+                        # Format as whole number string for potential display if not using Option A for table
+                        display_df['Target Allocation (USD)'] = display_df['Target Allocation (USD)'].apply(
+                            lambda x: str(int(float(x))) if pd.notnull(x) else ''
+                        )
 
                         # Reorder columns for better display
                         display_df = display_df[[
@@ -287,31 +297,70 @@ if st.button("🚀 Calculate Allocation"):
                         # 9. Display Results
                         st.subheader("🎯 Target Allocation Summary")
                         col_alloc1, col_alloc2 = st.columns(2)
+
+                        # BTC Target Allocation Metric
+                        target_btc_usd_int = int(target_btc_usd)
+                        btc_value_to_copy = str(target_btc_usd_int)
+                        btc_delta_color_css = "green" if target_btc_usd >= 0 else "red"
+
                         with col_alloc1:
-                            st.metric(
-                                label="BTC Target Weight",
-                                value=f"{btc_target_weight_percent}%",
-                                delta=f"${target_btc_usd:,.2f} USD",
-                                # Use normal color behavior: positive delta = green up arrow, negative delta = red down arrow
-                                delta_color="normal"
-                            )
+                            st.markdown(f"**BTC Target Weight**: {btc_target_weight_percent}%")
+                            col1_c1, col1_c2 = st.columns([3,1])
+                            with col1_c1:
+                                st.markdown(f'<span style="font-size: 1.1rem; color: {btc_delta_color_css};">{btc_value_to_copy} USD</span>', unsafe_allow_html=True)
+                            with col1_c2:
+                                pass # Placeholder for potential future button
+
+
+                        # Altcoin Basket Target Allocation Metric
+                        target_alt_usd_int = int(target_altcoin_basket_usd)
+                        alt_value_to_copy = str(target_alt_usd_int)
+                        alt_delta_color_css = "green" if target_altcoin_basket_usd >= 0 else "red"
+
                         with col_alloc2:
-                            # Determine delta color based on sign to force red/down arrow
-                            alt_delta_color = "inverse" if target_altcoin_basket_usd >= 0 else "normal"
-                            st.metric(
-                                label="Altcoin Basket Target Weight",
-                                value=f"{alt_target_weight_percent}%",
-                                delta=f"${target_altcoin_basket_usd:,.2f} USD",
-                                # Force red down arrow display
-                                delta_color=alt_delta_color
-                            )
+                            st.markdown(f"**Altcoin Basket Target Weight**: {alt_target_weight_percent}%")
+                            col2_c1, col2_c2 = st.columns([3,1])
+                            with col2_c1:
+                                st.markdown(f'<span style="font-size: 1.1rem; color: {alt_delta_color_css};">{alt_value_to_copy} USD</span>', unsafe_allow_html=True)
+                            with col2_c2:
+                                pass # Placeholder for potential future button
 
                         st.write("---")
                         st.subheader(f"💰 Calculated Altcoin Basket (Top {len(display_df)} Filtered)")
-                        st.dataframe(display_df)
+                        # Display dataframe by iterating and using st.columns for Option A
+                        # Header for the custom table
+                        header_cols = st.columns([1, 2, 3, 2, 3, 3, 3, 4]) # Adjusted for Basket Rank
+                        column_names = ['Basket Rank', 'Symbol', 'Name', 'Overall Rank', 'Price (USD)', 'Market Cap (USD)', 'Weight within Basket (%)', 'Target Allocation (USD)']
+                        for col, name in zip(header_cols, column_names):
+                            col.markdown(f"**{name}**")
 
-                        # Display total market cap of the basket
-                        st.caption(f"**Total Market Cap of Displayed Altcoin Basket:** ${total_altcoin_basket_market_cap:,.0f} USD")
+                        for index, row in display_df.iterrows():
+                            cols = st.columns([1, 2, 3, 2, 3, 3, 3, 4]) # Adjusted for Basket Rank
+                            cols[0].write(index) # Basket Rank (already index)
+                            cols[1].write(row['Symbol'])
+                            cols[2].write(row['Name'])
+                            cols[3].write(row['Overall Rank'])
+                            cols[4].write(row['Price (USD)'])
+                            cols[5].write(row['Market Cap (USD)'])
+                            cols[6].write(row['Weight within Basket (%)'])
+                            
+                            target_alloc_usd_val = row['Target Allocation (USD)'] # This is already a formatted string
+                            
+                            # Use a sub-column for the value and button to align them
+                            val_col, btn_col = cols[7].columns([3,1])
+                            val_col.write(target_alloc_usd_val)
+                            
+                            button_key = f"copy_table_row_{index}_{row['Symbol']}"
+                            # Placeholder for potential future button in row
+                            st.markdown("---") # Visual separator between rows
+
+                        # Display total market cap of the basket, revert to original formatting (no copy button)
+                        formatted_total_mcap_basket = f"{total_altcoin_basket_market_cap:,.0f}"
+                        st.markdown(f"""
+                            <div style="margin-top:10px;">
+                                **Total Market Cap of Displayed Altcoin Basket:** {formatted_total_mcap_basket} USD
+                            </div>
+                            """, unsafe_allow_html=True)
 
                         # --- Display Reference Table (Top N Raw Data) ---
                         # INCREASE the number of coins shown in the reference table
@@ -330,11 +379,17 @@ if st.button("🚀 Calculate Allocation"):
                             'market_cap': 'Market Cap (USD)'
                         }, inplace=True)
                         ref_df_display['Symbol'] = ref_df_display['Symbol'].str.upper()
-                        # Apply formatting using style for better control if needed later, map is simpler for now
-                        ref_df_display['Price (USD)'] = ref_df_display['Price (USD)'].map('${:,.4f}'.format) # More precision for price
-                        ref_df_display['Market Cap (USD)'] = ref_df_display['Market Cap (USD)'].map('{:,.0f}'.format)
+                        # Apply formatting, revert to original formatting (no copy button)
+                        ref_df_display['Price (USD)'] = ref_df_display['Price (USD)'].map(
+                            lambda x: f"{x:,.4f}" if pd.notnull(x) else ''
+                        )
+                        ref_df_display['Market Cap (USD)'] = ref_df_display['Market Cap (USD)'].map(
+                            lambda x: f"{x:,.0f}" if pd.notnull(x) else ''
+                        )
                         ref_df_display.set_index('Overall Rank', inplace=True)
-                        st.dataframe(ref_df_display)
+                        # Display reference dataframe as HTML table (no changes needed here for copy functionality)
+                        st.markdown(ref_df_display.to_html(escape=False, index=True, classes='custom_table'), unsafe_allow_html=True)
+                        
                         st.write("---")
                         status_text.success("Calculation complete!")
                         progress_bar.progress(100)
