@@ -125,18 +125,18 @@ with col1:
     )
     btc_target_weight_percent = st.slider(
         "BTC Target Weight (%)",
-        min_value=0, # Allow shorting up to 1x
-        max_value=300,  # Allow leverage up to 2x
-        value=150,
-        step=1,
+        min_value=0.0, # Allow shorting up to 1x
+        max_value=300.0,  # Allow leverage up to 2x
+        value=150.0,
+        step=0.1,
         help="Set the desired target weight for Bitcoin (e.g., -50 for 0.5x short, 150 for 1.5x leverage)."
     )
     alt_target_weight_percent = st.slider(
         "Altcoin Basket Target Weight (%)",
-        min_value=0, # Allow shorting up to 1x
-        max_value=300,  # Allow leverage up to 2x
-        value=50,
-        step=1,
+        min_value=0.0, # Allow shorting up to 1x
+        max_value=300.0,  # Allow leverage up to 2x
+        value=50.0,
+        step=0.1,
         help="Set the desired target weight for the Altcoin Basket (e.g., -50 for 0.5x short, 150 for 1.5x leverage)."
     )
 
