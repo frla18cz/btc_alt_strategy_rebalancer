@@ -127,7 +127,7 @@ with col1:
         "BTC Target Weight (%)",
         min_value=0.0, # Allow shorting up to 1x
         max_value=300.0,  # Allow leverage up to 2x
-        value=150.0,
+        value=175.0,
         step=0.1,
         help="Set the desired target weight for Bitcoin (e.g., -50 for 0.5x short, 150 for 1.5x leverage)."
     )
@@ -135,7 +135,7 @@ with col1:
         "Altcoin Basket Target Weight (%)",
         min_value=0.0, # Allow shorting up to 1x
         max_value=300.0,  # Allow leverage up to 2x
-        value=50.0,
+        value=75.0,
         step=0.1,
         help="Set the desired target weight for the Altcoin Basket (e.g., -50 for 0.5x short, 150 for 1.5x leverage)."
     )
