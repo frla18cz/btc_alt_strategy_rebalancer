@@ -2,8 +2,9 @@
 import streamlit as st
 import pandas as pd
 import requests
-import time # Import time for potential rate limiting
-import json # For passing data to JavaScript
+import time  # Import time for potential rate limiting
+import json  # For passing data to JavaScript
+from pathlib import Path
 
 # --- CoinGecko API Fetching ---
 @st.cache_data(ttl=600) # Cache data for 10 minutes
@@ -101,6 +102,18 @@ def fetch_market_data(pages=2, retries=3, delay=5):
     return processed_coins
 
 
+# --- Local Data Loading ---
+@st.cache_data(ttl=600)
+def load_latest_local_data(dir_path="data"):
+    """Load the newest JSON file created by the GitHub Actions fetch."""
+    data_dir = Path(dir_path)
+    files = sorted(data_dir.glob("coingecko_*.json"), reverse=True)
+    if not files:
+        return None
+    with files[0].open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 # --- Streamlit App ---
 
 st.set_page_config(layout="wide") # Use wider layout
@@ -165,11 +178,14 @@ if st.button("🚀 Calculate Allocation"):
 
     progress_bar = st.progress(0)
     status_text = st.empty()
-    status_text.info("Fetching market data from CoinGecko...")
+    status_text.info("Loading pre-fetched market data...")
 
-    # Fetch data (using cache)
-    # Fetch more pages to ensure enough data for larger reference table
-    market_data = fetch_market_data(pages=3) # Fetch top 750 coins
+    # Try to load data produced by the GitHub Actions workflow
+    market_data = load_latest_local_data()
+    if not market_data:
+        status_text.warning("No local data found. Fetching from CoinGecko API...")
+        # Fallback to live fetch if local file is missing
+        market_data = fetch_market_data(pages=3)
     progress_bar.progress(20)
 
     if market_data:
