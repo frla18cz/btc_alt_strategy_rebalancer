@@ -145,7 +145,7 @@ with col2:
     excluded_tokens_str = st.text_area(
         "Excluded Tokens (comma-separated, lowercase)",
         # UPDATED default list
-        value="usdt,usdc,dai,tusd,busd,bsc-usd,fdusd,usdp,pyusd,usdd,frax,wbtc,steth,wsteth,weth,usds,weeth,hype,wbeth,figr_heloc,usde",
+        value="usdt,usdc,dai,tusd,busd,bsc-usd,fdusd,usdp,pyusd,usdd,frax,wbtc,wbt,steth,wsteth,weth,usds,weeth,hype,wbeth,figr_heloc,usde",
         help="Enter token symbols (lowercase) to exclude. BTC is handled separately."
     )
     top_n_altcoins = st.number_input(
