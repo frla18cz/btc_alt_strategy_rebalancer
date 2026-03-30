@@ -105,6 +105,12 @@ def fetch_market_data(pages=2, retries=3, delay=5):
 
 st.set_page_config(layout="wide") # Use wider layout
 
+STRATEGY_MODE_BTC = {
+    "Default": 0.0,
+    "Simple": 1.5,
+    "Habi": 0.676,
+}
+
 # App Title
 st.title("🪙 BTC/Altcoin Market Cap Rebalancer")
 
@@ -115,13 +121,20 @@ st.subheader("Configuration")
 col1, col2 = st.columns(2)
 
 with col1:
+    strategy_mode = st.radio(
+        "Strategy Mode",
+        options=list(STRATEGY_MODE_BTC.keys()),
+        index=0,
+        horizontal=True,
+        help="Default adds no wallet BTC. Simple and Habi add the selected wallet BTC on top of the base portfolio NAV."
+    )
     total_portfolio_usd = st.number_input(
         "Total Portfolio Value (USD)",
         min_value=0.0,
         value=100000.0,
         step=1000.0,
         format="%.2f",
-        help="Enter the total value of your portfolio in USD."
+        help="Enter the base value of your portfolio in USD. Strategy Mode can add wallet BTC on top during calculation."
     )
     btc_target_weight_percent = st.slider(
         "BTC Target Weight (%)",
@@ -195,6 +208,14 @@ if st.button("🚀 Calculate Allocation"):
             df.sort_values(by='market_cap_rank', ascending=True, inplace=True)
             progress_bar.progress(40)
 
+            selected_wallet_btc = STRATEGY_MODE_BTC[strategy_mode]
+            btc_rows = df[df['symbol'].str.lower() == 'btc']
+            if btc_rows.empty:
+                raise ValueError("BTC price is missing from the fetched market data.")
+
+            btc_price_usd = float(btc_rows.iloc[0]['current_price'])
+            selected_wallet_btc_usd = selected_wallet_btc * btc_price_usd
+            effective_total_portfolio_usd = total_portfolio_usd + selected_wallet_btc_usd
 
             # --- Start Calculation for Altcoin Basket ---
             status_text.info("Calculating altcoin basket...")
@@ -227,8 +248,8 @@ if st.button("🚀 Calculate Allocation"):
                     progress_bar.progress(100)
                 else:
                     # 5. Calculate Target USD Allocations
-                    target_btc_usd = total_portfolio_usd * (btc_target_weight_percent / 100.0)
-                    target_altcoin_basket_usd = total_portfolio_usd * (alt_target_weight_percent / 100.0)
+                    target_btc_usd = effective_total_portfolio_usd * (btc_target_weight_percent / 100.0)
+                    target_altcoin_basket_usd = effective_total_portfolio_usd * (alt_target_weight_percent / 100.0)
 
                     # 6. Calculate Total Market Cap of Basket
                     total_altcoin_basket_market_cap = altcoin_basket['market_cap'].sum()
@@ -295,6 +316,14 @@ if st.button("🚀 Calculate Allocation"):
                         progress_bar.progress(85)
 
                         # 9. Display Results
+                        st.subheader("📦 Portfolio NAV Used for Rebalance")
+                        nav_col1, nav_col2, nav_col3, nav_col4 = st.columns(4)
+                        nav_col1.metric("Strategy Mode", strategy_mode)
+                        nav_col2.metric("Wallet BTC Added", f"{selected_wallet_btc:.3f} BTC")
+                        nav_col3.metric("Wallet Value Added (USD)", f"{selected_wallet_btc_usd:,.0f}")
+                        nav_col4.metric("Effective Portfolio NAV (USD)", f"{effective_total_portfolio_usd:,.0f}")
+                        st.caption(f"BTC spot used for wallet uplift: {btc_price_usd:,.2f} USD")
+
                         st.subheader("🎯 Target Allocation Summary")
                         col_alloc1, col_alloc2 = st.columns(2)
 
