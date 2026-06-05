@@ -110,6 +110,8 @@ STRATEGY_MODE_BTC = {
     "Simple": 1.5,
     "Habi": 0.676,
 }
+CUSTOM_STRATEGY_MODE = "Custom"
+CUSTOM_WALLET_BTC_DEFAULT = 0.064
 
 # App Title
 st.title("🪙 BTC/Altcoin Market Cap Rebalancer")
@@ -123,18 +125,28 @@ col1, col2 = st.columns(2)
 with col1:
     strategy_mode = st.radio(
         "Strategy Mode",
-        options=list(STRATEGY_MODE_BTC.keys()),
+        options=[*STRATEGY_MODE_BTC.keys(), CUSTOM_STRATEGY_MODE],
         index=0,
         horizontal=True,
-        help="Default adds no wallet BTC. Simple and Habi add the selected wallet BTC on top of the base portfolio NAV."
+        help="Default adds no wallet BTC. Presets and Custom add wallet BTC on top of the base portfolio NAV."
     )
+    custom_wallet_btc = CUSTOM_WALLET_BTC_DEFAULT
+    if strategy_mode == CUSTOM_STRATEGY_MODE:
+        custom_wallet_btc = st.number_input(
+            "Custom Wallet BTC",
+            min_value=0.0,
+            value=CUSTOM_WALLET_BTC_DEFAULT,
+            step=0.001,
+            format="%.6f",
+            help="Enter the wallet BTC amount to add on top of the base portfolio NAV."
+        )
     total_portfolio_usd = st.number_input(
         "Total Portfolio Value (USD)",
         min_value=0.0,
         value=100000.0,
         step=1000.0,
         format="%.2f",
-        help="Enter the base value of your portfolio in USD. Strategy Mode can add wallet BTC on top during calculation."
+        help="Enter the base value of your portfolio in USD. Strategy Mode can add preset or custom wallet BTC on top during calculation."
     )
     btc_target_weight_percent = st.slider(
         "BTC Target Weight (%)",
@@ -208,7 +220,11 @@ if st.button("🚀 Calculate Allocation"):
             df.sort_values(by='market_cap_rank', ascending=True, inplace=True)
             progress_bar.progress(40)
 
-            selected_wallet_btc = STRATEGY_MODE_BTC[strategy_mode]
+            selected_wallet_btc = (
+                custom_wallet_btc
+                if strategy_mode == CUSTOM_STRATEGY_MODE
+                else STRATEGY_MODE_BTC[strategy_mode]
+            )
             btc_rows = df[df['symbol'].str.lower() == 'btc']
             if btc_rows.empty:
                 raise ValueError("BTC price is missing from the fetched market data.")
